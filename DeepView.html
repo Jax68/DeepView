@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр чатов DeepSeek</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f5f5f5;
+        }
+
+        a {
+            color: rgb(57, 100, 254);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Стили для панели чатов */
+        .chats-panel {
+            width: 350px;
+            min-width: 300px;
+            background: #ffffff;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 20px;
+        }
+
+        .load-btn {
+            width: 100%;
+            padding: 12px 20px;
+            background: #3964fe;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .load-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .load-btn:active {
+            background: #1e40af;
+        }
+
+        .chats-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .chat-item {
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .chat-item:hover {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+        }
+
+        .chat-item.active {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+
+        .chat-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 6px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .chat-date {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* Стили для области чата */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 20px 40px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .chat-header h1 {
+            font-size: 24px;
+            color: #42464e;
+            flex: 1;
+        }
+
+        .chat-info {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .chat-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+        }
+
+        .messages-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Стили сообщений */
+        .message {
+            margin-bottom: 30px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #2563eb;
+        }
+
+        .assistant-message {
+            padding: 20px;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-avatar {
+            background: #2563eb;
+            color: white;
+        }
+
+        .assistant-avatar {
+            background: #10b981;
+            color: white;
+        }
+
+        .message-author {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .message-time {
+            font-size: 13px;
+            color: #6b7280;
+            margin-left: auto;
+        }
+
+        .message-content {
+            line-height: 1.6;
+            color: #374151;
+        }
+
+        /* Стили для разметки Markdown */
+        .message-content h1,
+        .message-content h2,
+        .message-content h3,
+        .message-content h4,
+        .message-content h5 {
+            margin: 1.5em 0 0.8em 0;
+            color: #1f2937;
+        }
+
+        .message-content h1 {
+            font-size: 28px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+
+        .message-content h2 {
+            font-size: 24px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+
+        .message-content h3 {
+            font-size: 20px;
+        }
+
+        .message-content h4 {
+            font-size: 18px;
+        }
+
+        .message-content h5 {
+            font-size: 16px;
+            color: #4b5563;
+        }
+
+        .message-content p {
+            margin: 1em 0;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+
+        .message-content li {
+            margin: 0.5em 0;
+        }
+
+        .message-content strong {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .message-content em {
+            font-style: italic;
+        }
+
+        .message-content code:not(pre code) {
+            background: #ebeef2;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.9em;
+        }
+
+        /* Стили для блоков кода */
+        .code-block {
+            margin: 1.5em 0;
+            border-radius: 8px;
+            background: white;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+
+        .code-lang {
+            font-size: 14px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .code-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .code-btn {
+            padding: 6px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #4b5563;
+        }
+
+        .code-btn:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+
+        .copy-btn:hover {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .run-btn:hover {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+
+        .code-content {
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .code-content pre {
+            margin: 0;
+            padding: 0;
+        }
+
+        .code-content code {
+            display: block;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #1f2937;
+            white-space: pre-wrap;
+            word-break: break-all;
+            background: none !important;
+        }
+
+        /* Утилитарные классы */
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6b7280;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .empty-state h2 {
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 1024px) {
+            body {
+                flex-direction: column;
+            }
+            
+            .chats-panel {
+                width: 100%;
+                height: 300px;
+                min-height: 300px;
+            }
+            
+            .chat-header {
+                padding: 15px 20px;
+            }
+            
+            .chat-content {
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .messages-container {
+                max-width: 100%;
+            }
+            
+            .code-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .code-actions {
+                align-self: flex-end;
+            }
+        }
+    </style>
+    <!-- Подключаем Highlight.js для подсветки синтаксиса -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/markdown.min.js"></script>
+</head>
+<body>
+    <!-- Панель списка чатов -->
+    <div class="chats-panel">
+        <div class="panel-header">
+            <button class="load-btn" id="loadBtn">
+                Загрузить JSON файл
+            </button>
+        </div>
+        <div class="chats-list" id="chatsList">
+            <div class="empty-state">
+                <h2>Загрузите файл чатов</h2>
+                <p>Выберите файл conversations.json для просмотра истории переписки</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Область отображения чата -->
+    <div class="chat-area">
+        <div class="chat-header">
+            <h1 id="chatTitle"></h1>
+            <div class="chat-info" id="chatInfo">
+                <div>&nbsp;</div>
+                <div>&nbsp;</div>
+            </div>
+        </div>
+        <div class="chat-content">
+            <div class="empty-state" id="chatEmpty">
+                <h2>Выберите чат из списка</h2>
+                <p>Выберите чат на панели слева, чтобы увидеть его содержимое</p>
+            </div>
+            <div class="messages-container hidden" id="chatMessages"></div>
+        </div>
+    </div>
+
+    <!-- Скрытый input для загрузки файла -->
+    <input type="file" id="fileInput" accept=".json" class="hidden">
+
+    <script>
+        // Глобальные переменные
+        let currentChats = [];
+        let currentChatId = null;
+
+        // Элементы DOM
+        const fileInput = document.getElementById('fileInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const chatsList = document.getElementById('chatsList');
+        const chatTitle = document.getElementById('chatTitle');
+        const chatInfo = document.getElementById('chatInfo');
+        const chatEmpty = document.getElementById('chatEmpty');
+        const chatMessages = document.getElementById('chatMessages');
+
+        // Обработчики событий
+        loadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Обработка выбора файла
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                loadBtn.classList.add('loading');
+                loadBtn.textContent = 'Загрузка...';
+                
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                // Очищаем предыдущие данные
+                currentChats = [];
+                currentChatId = null;
+                
+                // Проверяем структуру данных
+                if (Array.isArray(data)) {
+                    currentChats = data;
+                } else if (data && Array.isArray(data.chats)) {
+                    currentChats = data.chats;
+                } else if (data && data.conversations) {
+                    currentChats = data.conversations;
+                } else {
+                    throw new Error('Неизвестный формат файла');
+                }
+                
+                // Сортируем чаты от новых к старым
+                currentChats.sort((a, b) => {
+                    const dateA = new Date(a.updated_at || a.inserted_at || a.created_at || '2000-01-01');
+                    const dateB = new Date(b.updated_at || b.inserted_at || b.created_at || '2000-01-01');
+                    return dateB - dateA;
+                });
+                
+                renderChatsList();
+                showEmptyState();
+                
+                loadBtn.textContent = 'Загрузить JSON файл';
+                loadBtn.classList.remove('loading');
+                
+            } catch (error) {
+                console.error('Ошибка загрузки файла:', error);
+                showError('Ошибка загрузки файла: ' + error.message);
+                loadBtn.textContent = 'Загрузить JSON файл';
+                loadBtn.classList.remove('loading');
+            }
+            
+            // Сбрасываем input
+            event.target.value = '';
+        }
+
+        // Рендеринг списка чатов
+        function renderChatsList() {
+            chatsList.innerHTML = '';
+            
+            if (currentChats.length === 0) {
+                chatsList.innerHTML = `
+                    <div class="empty-state">
+                        <h2>Чаты не найдены</h2>
+                        <p>Файл не содержит данных о чатах или имеет неправильный формат</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            currentChats.forEach(chat => {
+                const chatItem = document.createElement('div');
+                chatItem.className = 'chat-item';
+                chatItem.dataset.id = chat.id;
+                
+                const title = chat.title || 'Без названия';
+                const date = formatDate(chat.updated_at || chat.inserted_at);
+                
+                chatItem.innerHTML = `
+                    <div class="chat-title">${escapeHtml(title)}</div>
+                    <div class="chat-date">${date}</div>
+                `;
+                
+                chatItem.addEventListener('click', () => selectChat(chat.id));
+                chatsList.appendChild(chatItem);
+            });
+        }
+
+        // Выбор чата для отображения
+        function selectChat(chatId) {
+            currentChatId = chatId;
+            const chat = currentChats.find(c => c.id === chatId);
+            
+            if (!chat) return;
+            
+            // Обновляем активный элемент в списке
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.id === chatId);
+            });
+            
+            // Обновляем заголовок
+            chatTitle.textContent = chat.title || 'Без названия';
+            
+            const createdDate = formatDate(chat.inserted_at);
+            const updatedDate = formatDate(chat.updated_at);
+            chatInfo.innerHTML = `
+                <div>Создан: ${createdDate}</div>
+                <div>Обновлен: ${updatedDate}</div>
+            `;
+            
+            // Показываем сообщения
+            chatEmpty.classList.add('hidden');
+            chatMessages.classList.remove('hidden');
+            
+            // Рендерим сообщения
+            renderChatMessages(chat);
+        }
+
+        // Рендеринг сообщений чата
+        function renderChatMessages(chat) {
+            chatMessages.innerHTML = '';
+            
+            if (!chat.mapping) {
+                chatMessages.innerHTML = '<div class="empty-state"><p>Нет данных о сообщениях</p></div>';
+                return;
+            }
+            
+            // Находим корневой элемент
+            const root = chat.mapping.root;
+            const messages = [];
+            let current = root;
+            
+            // Собираем цепочку сообщений
+            while (current && current.children && current.children[0]) {
+                const childId = current.children[0];
+                const child = chat.mapping[childId];
+                if (!child || !child.message) break;
+                
+                messages.push(child.message);
+                current = child;
+            }
+            
+            // Группируем сообщения по парам запрос-ответ
+            for (let i = 0; i < messages.length; i += 2) {
+                const request = messages[i];
+                const response = messages[i + 1];
+                
+                if (request) {
+                    renderMessage(request, 'user');
+                }
+                if (response) {
+                    renderMessage(response, 'assistant');
+                }
+            }
+        }
+
+        // Рендеринг одного сообщения
+        function renderMessage(message, role) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}-message`;
+            
+            const author = role === 'user' ? 'Пользователь' : 'DeepSeek';
+            const avatarText = role === 'user' ? 'П' : 'AI';
+            const time = formatTime(message.inserted_at);
+            
+            // Извлекаем содержимое из fragments
+            let content = '';
+            if (message.fragments && Array.isArray(message.fragments)) {
+                const requestFragment = message.fragments.find(f => f.type === 'REQUEST');
+                const responseFragment = message.fragments.find(f => f.type === 'RESPONSE');
+                
+                if (requestFragment) content = requestFragment.content;
+                if (responseFragment) content = responseFragment.content;
+            } else {
+                content = message.content || '';
+            }
+            
+            // Преобразуем Markdown в HTML
+            const htmlContent = markdownToHtml(content);
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <div class="message-avatar ${role}-avatar">${avatarText}</div>
+                    <div class="message-author">${author}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+                <div class="message-content">${htmlContent}</div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            
+            // Добавляем обработчики для кнопок кода
+            setTimeout(() => {
+                addCodeBlockListeners(messageDiv);
+                // Применяем подсветку синтаксиса ко всем блокам кода
+                messageDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }, 100);
+        }
+
+        // Преобразование Markdown в HTML
+        function markdownToHtml(markdown) {
+            if (!markdown) return '';
+            
+            // Сначала экранируем HTML
+            let html = escapeHtml(markdown);
+            
+            // Временные маркеры для защиты блоков кода
+            const codeBlockMarkers = [];
+            const inlineCodeMarkers = [];
+            
+            // 1. Сохраняем блоки кода (```) с их содержимым
+            html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, function(match, lang, code) {
+                const id = Math.random().toString(36).substr(2, 9);
+                const marker = `<${id}>`;
+                codeBlockMarkers.push({
+                    marker,
+                    lang: lang || 'text',
+                    code: code
+                });
+                return marker;
+            });
+            
+            // 2. Сохраняем inline код (`)
+            html = html.replace(/`([^`]+)`/g, function(match, code) {
+                const id = Math.random().toString(36).substr(2, 9);
+                const marker = `<${id}>`;
+                inlineCodeMarkers.push({
+                    marker,
+                    code: code
+                });
+                return marker;
+            });
+            
+            // 3. Теперь применяем преобразования Markdown
+            // Заголовки (добавили обработку #### и #####)
+            html = html.replace(/^##### (.*$)/gm, '<h5>$1</h5>');
+            html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
+            html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+
+            // Ссылки
+            html = html.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, function(match, text, url, title) {
+                const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+                return `<a href="${escapeHtml(url)}"${titleAttr}>${text}</a>`;
+            });            
+            
+            // Жирный текст
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+            
+            // Курсив
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+            
+            // Списки
+            html = html.replace(/^\s*[-*+] (.*$)/gm, '<li>$1</li>');
+            html = html.replace(/^\s*\d+\. (.*$)/gm, '<li>$1</li>');
+
+            console.log(html);
+            console.log();
+            
+            // 4. Восстанавливаем inline код
+            inlineCodeMarkers.forEach(item => {
+                html = html.replace(item.marker, `<code>${item.code}</code>`);
+            });
+
+            // 5. Восстанавливаем блоки кода
+            codeBlockMarkers.forEach(item => {
+                html = html.replace(item.marker, renderCodeBlock(item.lang, item.code));
+            });
+            
+            // Обертываем в параграфы, если нет других блоков
+            if (!html.includes('<h1>') && !html.includes('<h2>') && !html.includes('<h3>') && 
+                !html.includes('<h4>') && !html.includes('<h5>') && 
+                !html.startsWith('__CODE_BLOCK_') && 
+                !html.includes('<div class="code-block">') && !html.includes('<li>')) {
+                // Разделяем текст на параграфы по двойным переносам строк
+                const paragraphs = html.split(/\n\s*\n/);
+                if (paragraphs.length > 1) {
+                    html = paragraphs.map(p => p.trim() ? `<p>${p.replace(/\n/g, '<br>')}</p>` : '').join('');
+                } else {
+                    html = `<p>${html.replace(/\n/g, '<br>')}</p>`;
+                }
+            }
+            
+            return html;
+        }
+
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function unescapeHtml(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            return div.textContent;
+        }
+
+        // Создание блока кода
+        function renderCodeBlock(lang, code) {
+                return `
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">${lang}</span>
+                            <div class="code-actions">
+                                <button class="code-btn copy-btn" data-code="${btoa(unescape(encodeURIComponent(unescapeHtml(code))))}">Копировать</button>
+                                ${lang === 'html' ? `<button class="code-btn run-btn" data-code="${btoa(unescape(encodeURIComponent(unescapeHtml(code))))}">Запустить</button>` : ''}
+                            </div>
+                        </div>
+                        <div class="code-content">
+                            <pre><code class="language-${lang}">${code}</code></pre>
+                        </div>
+                    </div>
+                `;
+        }
+
+        // Экранирование HTML для кода (специальная функция для блоков кода)
+        function escapeHtmlForCode(text) {
+            if (!text) return '';
+            // Заменяем только опасные символы, но оставляем теги HTML как текст
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Добавление обработчиков для блоков кода
+        function addCodeBlockListeners(container) {
+            container.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const code = decodeURIComponent(escape(atob(e.target.dataset.code)));
+                    try {
+                        await navigator.clipboard.writeText(code);
+                        const originalText = btn.textContent;
+                        btn.textContent = 'Скопировано!';
+                        btn.style.background = '#10b981';
+                        btn.style.color = 'white';
+                        btn.style.borderColor = '#10b981';
+                        
+                        setTimeout(() => {
+                            btn.textContent = originalText;
+                            btn.style.background = '';
+                            btn.style.color = '';
+                            btn.style.borderColor = '';
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Ошибка копирования:', err);
+                    }
+                });
+            });
+            
+            container.querySelectorAll('.run-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const code = decodeURIComponent(escape(atob(e.target.dataset.code)));
+                    const newWindow = window.open('', '_blank');
+                    newWindow.document.write(code);
+                    newWindow.document.close();
+                });
+            });
+        }
+
+        // Форматирование даты
+        function formatDate(dateString) {
+            if (!dateString) return 'Дата неизвестна';
+            
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        // Форматирование времени
+        function formatTime(dateString) {
+            if (!dateString) return '';
+            
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return '';
+            }
+        }
+
+        // Показ пустого состояния
+        function showEmptyState() {
+            chatTitle.textContent = '';
+            chatInfo.innerHTML = `
+                <div>&nbsp;</div>
+                <div>&nbsp;</div>
+            `;
+            chatEmpty.classList.remove('hidden');
+            chatMessages.classList.add('hidden');
+            
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+        }
+
+        // Показ ошибки
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            chatsList.prepend(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        // Инициализация Highlight.js
+        document.addEventListener('DOMContentLoaded', () => {
+            hljs.configure({
+                cssSelector: 'pre code',
+                languages: ['javascript', 'python', 'html', 'css', 'bash', 'json', 'markdown'],
+                ignoreUnescapedHTML: true
+            });
+        });
+    </script>
+</body>
+</html>
