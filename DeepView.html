@@ -432,6 +432,89 @@
                 align-self: flex-end;
             }
         }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+        }
+
+        .modal-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            height: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 1001;
+        }
+
+        .modal-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .modal-content svg {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            display: block;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            background: none;
+            background-color: rgba(255, 255, 255, 0);
+            cursor: pointer;
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+        }
+
+        .modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
     </style>
     <!-- Подключаем Highlight.js для подсветки синтаксиса -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
@@ -443,6 +526,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/markdown.min.js"></script>
+    <!-- Подключаем Mermaid.js для отображения схем -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
 <body>
     <!-- Панель списка чатов -->
@@ -583,7 +668,7 @@
         }
 
         // Выбор чата для отображения
-        function selectChat(chatId) {
+        async function selectChat(chatId) {
             currentChatId = chatId;
             const chat = currentChats.find(c => c.id === chatId);
             
@@ -610,6 +695,12 @@
             
             // Рендерим сообщения
             renderChatMessages(chat);
+
+
+            // Рендерим mermaid-схемы
+            await mermaid.run({
+                querySelector: 'code.language-mermaid',
+            });
         }
 
         // Рендеринг сообщений чата
@@ -711,6 +802,7 @@
                 const id = Math.random().toString(36).substr(2, 9);
                 const marker = `<${id}>`;
                 codeBlockMarkers.push({
+                    id,
                     marker,
                     lang: lang || 'text',
                     code: code
@@ -723,6 +815,7 @@
                 const id = Math.random().toString(36).substr(2, 9);
                 const marker = `<${id}>`;
                 inlineCodeMarkers.push({
+                    id,
                     marker,
                     code: code
                 });
@@ -754,9 +847,6 @@
             // Списки
             html = html.replace(/^\s*[-*+] (.*$)/gm, '<li>$1</li>');
             html = html.replace(/^\s*\d+\. (.*$)/gm, '<li>$1</li>');
-
-            console.log(html);
-            console.log();
             
             // 4. Восстанавливаем inline код
             inlineCodeMarkers.forEach(item => {
@@ -765,7 +855,7 @@
 
             // 5. Восстанавливаем блоки кода
             codeBlockMarkers.forEach(item => {
-                html = html.replace(item.marker, renderCodeBlock(item.lang, item.code));
+                html = html.replace(item.marker, renderCodeBlock(item.id, item.lang, item.code));
             });
             
             // Обертываем в параграфы, если нет других блоков
@@ -781,7 +871,7 @@
                     html = `<p>${html.replace(/\n/g, '<br>')}</p>`;
                 }
             }
-            
+
             return html;
         }
 
@@ -799,18 +889,19 @@
         }
 
         // Создание блока кода
-        function renderCodeBlock(lang, code) {
+        function renderCodeBlock(id, lang, code) {
                 return `
                     <div class="code-block">
                         <div class="code-header">
                             <span class="code-lang">${lang}</span>
                             <div class="code-actions">
+                                ${lang === 'mermaid' ? `<button class="code-btn mermaid-btn" data-id="${id}">На весь экран</button>` : ''}
                                 <button class="code-btn copy-btn" data-code="${btoa(unescape(encodeURIComponent(unescapeHtml(code))))}">Копировать</button>
                                 ${lang === 'html' ? `<button class="code-btn run-btn" data-code="${btoa(unescape(encodeURIComponent(unescapeHtml(code))))}">Запустить</button>` : ''}
                             </div>
                         </div>
                         <div class="code-content">
-                            <pre><code class="language-${lang}">${code}</code></pre>
+                            <pre><code class="language-${lang}" data-id="${id}">${code}</code></pre>
                         </div>
                     </div>
                 `;
@@ -832,6 +923,7 @@
 
         // Добавление обработчиков для блоков кода
         function addCodeBlockListeners(container) {
+            // Копировать
             container.querySelectorAll('.copy-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const code = decodeURIComponent(escape(atob(e.target.dataset.code)));
@@ -855,12 +947,21 @@
                 });
             });
             
+            // Запустить
             container.querySelectorAll('.run-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const code = decodeURIComponent(escape(atob(e.target.dataset.code)));
                     const newWindow = window.open('', '_blank');
                     newWindow.document.write(code);
                     newWindow.document.close();
+                });
+            });
+
+            // На весь экран
+            container.querySelectorAll('.mermaid-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {                    
+                    const svg = document.querySelector(`code.language-mermaid[data-id="${e.target.dataset.id}"] > svg`);
+                    if (svg) showModal(svg);                    
                 });
             });
         }
@@ -933,6 +1034,76 @@
                 ignoreUnescapedHTML: true
             });
         });
+
+        // Инициализация Mermaid
+        mermaid.initialize({ startOnLoad: false });
+
+        function showModal(svgElement) {
+            // Проверяем, передан ли SVG элемент
+            if (!svgElement || !(svgElement instanceof SVGElement)) return;
+            
+            // Создаем элементы модального окна
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            
+            const container = document.createElement('div');
+            container.className = 'modal-container';
+            
+            const content = document.createElement('div');
+            content.className = 'modal-content';
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'modal-close';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.setAttribute('aria-label', 'Закрыть');
+            
+            // Клонируем SVG
+            const svgClone = svgElement.cloneNode(true);
+            svgClone.style.display = 'block';
+            
+            // Собираем структуру
+            content.appendChild(svgClone);
+            container.appendChild(content);
+            modal.appendChild(overlay);
+            modal.appendChild(container);
+            modal.appendChild(closeBtn);
+            document.body.appendChild(modal);
+            
+            // Функция закрытия модального окна
+            function closeModal() {
+                // Удаляем модальное окно из DOM
+                if (modal.parentNode) modal.parentNode.removeChild(modal);
+                
+                // Удаляем обработчики событий
+                document.removeEventListener('keydown', handleEscKey);
+                overlay.removeEventListener('click', closeModal);
+                closeBtn.removeEventListener('click', closeModal);
+            }
+            
+            // Обработчик клавиши ESC
+            function handleEscKey(event) {
+                if (event.key === 'Escape') {
+                closeModal();
+                }
+            }
+            
+            // Назначаем обработчики событий
+            closeBtn.addEventListener('click', closeModal);
+            overlay.addEventListener('click', closeModal);
+            document.addEventListener('keydown', handleEscKey);
+            
+            // Предотвращаем закрытие при клике на контент
+            content.addEventListener('click', function(event) {
+                event.stopPropagation();
+            });
+            
+            // Фокус на кнопке закрытия для доступности
+            closeBtn.focus();
+        }
+        
     </script>
 </body>
 </html>
