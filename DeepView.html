@@ -196,7 +196,14 @@
             font-size: 14px;
         }
 
-        .user-avatar {
+        .message-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .user-icon {
             background: #646464;
             color: white;
             mask-size: contain;
@@ -205,7 +212,7 @@
             mask-image: var(--icon-user);
         }
 
-        .assistant-avatar {
+        .assistant-icon {
             background: hsl(227, 99%, 61%);
             mask-size: contain;
             mask-repeat: no-repeat;
@@ -530,6 +537,7 @@
         .modal-close:hover {
             background-color: rgba(255, 255, 255, 0.3);
         }
+
     </style>
     <!-- Подключаем Highlight.js для подсветки синтаксиса -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
@@ -543,19 +551,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/markdown.min.js"></script>
     <!-- Подключаем Mermaid.js для отображения схем -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <!-- Подключаем JSZip для загрузки из архивов -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <!-- Панель списка чатов -->
     <div class="chats-panel">
         <div class="panel-header">
             <button class="load-btn" id="loadBtn">
-                Загрузить JSON файл
+                Загрузить...
             </button>
         </div>
         <div class="chats-list" id="chatsList">
             <div class="empty-state">
                 <h2>Загрузите файл чатов</h2>
-                <p>Выберите файл conversations.json для просмотра истории переписки</p>
+                <p>Выберите файл <b>conversations.json</b> или <b>deepseek_data-....zip</b> для просмотра истории переписки</p>
             </div>
         </div>
     </div>
@@ -579,12 +589,14 @@
     </div>
 
     <!-- Скрытый input для загрузки файла -->
-    <input type="file" id="fileInput" accept=".json" class="hidden">
+    <input type="file" id="fileInput" accept=".json,.zip" class="hidden">
 
     <script>
         // Глобальные переменные
         let currentChats = [];
         let currentChatId = null;
+        let userName = '';
+        let userAvatar = '';
 
         // Элементы DOM
         const fileInput = document.getElementById('fileInput');
@@ -593,7 +605,7 @@
         const chatTitle = document.getElementById('chatTitle');
         const chatInfo = document.getElementById('chatInfo');
         const chatEmpty = document.getElementById('chatEmpty');
-        const chatMessages = document.getElementById('chatMessages');
+        const chatMessages = document.getElementById('chatMessages');        
 
         // Обработчики событий
         loadBtn.addEventListener('click', () => fileInput.click());
@@ -604,13 +616,67 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            loadBtn.classList.add('loading');
             try {
-                loadBtn.classList.add('loading');
-                loadBtn.textContent = 'Загрузка...';
                 
-                const text = await file.text();
-                const data = JSON.parse(text);
+                switch (file.name.slice(file.name.lastIndexOf('.'))) {
+                    case '.json':
+                        // Загружаем отдельный файл чатов
+                        const text = await file.text();
+                        const data = JSON.parse(text);
+                        loadChats(data);
+                        break;
+                    case '.zip':
+                        // Загружаем архив (чаты + профиль)
+                        const zip = new JSZip();
+                        const contents = await zip.loadAsync(file);
+                        const chatFile = contents.files['conversations.json'];
+                        const userFile = contents.files['user.json'];
+
+                        // Если нашли в архиве профиль - пытаемся добыть из него данные
+                        if (chatFile && userFile) {
+                            const text = await userFile.async('text');
+                            const data = JSON.parse(text);
+                            loadUser(data);
+                        }
+
+                        // Если нашли в архиве чаты - пытаемся загрузить
+                        if (chatFile) {
+                            const text = await chatFile.async('text');
+                            const data = JSON.parse(text);
+                            loadChats(data);
+                        }
+                        break;                        
+                };
                 
+            } catch (error) {
+                console.error('Ошибка загрузки файла:', error);
+                showError('Ошибка загрузки файла: ' + error.message);
+            }
+            loadBtn.classList.remove('loading');                
+            
+            // Сбрасываем input
+            event.target.value = '';
+        }
+
+        // Загрузка данных пользователя
+        function loadUser(data) {
+            const profile = data.oauth_profiles[0];
+            if (!profile) return;
+
+            try {
+                const userProfile = JSON.parse(profile.profile_json);
+                userName = userProfile.name;
+                userAvatar = userProfile.picture;                
+            } catch (error) {
+                userName = '';
+                userAvatar = '';
+            }
+        }
+
+        // Загрузка чатов
+        function loadChats(data) {
+            try {
                 // Очищаем предыдущие данные
                 currentChats = [];
                 currentChatId = null;
@@ -635,19 +701,10 @@
                 
                 renderChatsList();
                 showEmptyState();
-                
-                loadBtn.textContent = 'Загрузить JSON файл';
-                loadBtn.classList.remove('loading');
-                
+                return true;
             } catch (error) {
-                console.error('Ошибка загрузки файла:', error);
-                showError('Ошибка загрузки файла: ' + error.message);
-                loadBtn.textContent = 'Загрузить JSON файл';
-                loadBtn.classList.remove('loading');
+                console.error('Ошибка загрузки чатов', error);
             }
-            
-            // Сбрасываем input
-            event.target.value = '';
         }
 
         // Рендеринг списка чатов
@@ -761,7 +818,7 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${role}-message`;
             
-            const author = role === 'user' ? 'Пользователь' : 'DeepSeek';
+            const author = role === 'user' ? userName === '' ? 'Пользователь' : userName : 'DeepSeek';
             // const avatarText = role === 'user' ? 'П' : 'AI';
             const avatarText = '';
             const time = formatTime(message.inserted_at);
@@ -783,7 +840,10 @@
             
             messageDiv.innerHTML = `
                 <div class="message-header">
-                    <div class="message-avatar ${role}-avatar">${avatarText}</div>
+                    <div class="message-avatar${role === 'user' ? userAvatar === '' ? ' user-icon' : '' : ' assistant-icon'}">
+                        ${(role === 'user') && (userAvatar !== '') ? '<img src="' + userAvatar + '"">' : ''} 
+                        ${avatarText}
+                    </div>
                     <div class="message-author">${author}</div>
                     <div class="message-time">${time}</div>
                 </div>
@@ -795,8 +855,18 @@
             // Добавляем обработчики для кнопок кода
             setTimeout(() => {
                 addCodeBlockListeners(messageDiv);
-                // Применяем подсветку синтаксиса ко всем блокам кода
-                messageDiv.querySelectorAll('pre code').forEach((block) => {
+                // Применяем подсветку синтаксиса ко всем поддерживаемым (!) блокам кода
+                const cssSelector = `
+                    pre code:is(
+                        .language-javascript,
+                        .language-python, 
+                        .language-html,
+                        .language-css,
+                        .language-bash,
+                        .language-json,
+                        .language-markdown
+                    )`;
+                messageDiv.querySelectorAll(cssSelector).forEach((block) => {
                     hljs.highlightElement(block);
                 });
             }, 100);
@@ -1041,15 +1111,6 @@
                 errorDiv.remove();
             }, 5000);
         }
-
-        // Инициализация Highlight.js
-        document.addEventListener('DOMContentLoaded', () => {
-            hljs.configure({
-                cssSelector: 'pre code',
-                languages: ['javascript', 'python', 'html', 'css', 'bash', 'json', 'markdown'],
-                ignoreUnescapedHTML: true
-            });
-        });
 
         // Инициализация Mermaid
         mermaid.initialize({ startOnLoad: false });
