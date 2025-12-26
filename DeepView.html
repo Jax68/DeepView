@@ -624,6 +624,7 @@
                         // Загружаем отдельный файл чатов
                         const text = await file.text();
                         const data = JSON.parse(text);
+                        loadUser();
                         loadChats(data);
                         break;
                     case '.zip':
@@ -661,7 +662,10 @@
 
         // Загрузка данных пользователя
         function loadUser(data) {
-            const profile = data.oauth_profiles[0];
+            userName = '';
+            userAvatar = '';
+
+            const profile = data?.oauth_profiles?.[0] || null
             if (!profile) return;
 
             try {
